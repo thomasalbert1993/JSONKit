@@ -4,6 +4,20 @@ public enum ISO8601DateFormatterError: Error {
     case invalidDate(String)
 }
 
+extension ISO8601DateFormatterError: LocalizedError, CustomStringConvertible {
+
+    public var errorDescription: String? {
+        switch self {
+            case .invalidDate(let string):
+                return "Invalid ISO 8601 date: \"\(string)\"."
+        }
+    }
+
+    public var description: String {
+        errorDescription ?? "Unknown date error."
+    }
+}
+
 extension ISO8601DateFormatter: @unchecked @retroactive Sendable {
     
     /// An UTC formatter for dates without time.

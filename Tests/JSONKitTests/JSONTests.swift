@@ -395,8 +395,49 @@ struct JSONTests {
         let value = try decoder.decode(JSONValue.self, from: json)
         #expect(value == expectedValue)
     }
-    
-    
+
+
+    //--------------
+    // MARK: Errors
+    //--------------
+
+    @Test("Test error descriptions") func testErrorDescriptions() {
+
+        let object: JSONObject = ["id": .number(1), "name": .null]
+
+        #expect(JSONError.missingOrNullValue(forKey: "title", in: object).localizedDescription == "Missing value for key 'title' (available keys: id, name).")
+        #expect(JSONError.missingOrNullValue(forKey: "name", in: object).localizedDescription == "Null value for key 'name' (available keys: id, name).")
+        #expect(JSONError.invalidKeyValue(forKey: "id", expected: "String", in: object).localizedDescription == "Invalid value for key 'id': expected String, found number (1.0).")
+        #expect(JSONError.invalidValue(.bool(true), expected: "Int").description == "Invalid JSON value: expected Int, found bool (true).")
+        #expect(ISO8601DateFormatterError.invalidDate("tomorrow").localizedDescription == "Invalid ISO 8601 date: \"tomorrow\".")
+    }
+
+    @Test("Test thrown errors carry context") func testThrownErrors() {
+
+        enum Status: String { case draft, published }
+
+        let object: JSONObject = ["status": .string("archived"), "count": .string("3")]
+
+        #expect {
+            let _: Status = try object.rawRepresentable(forKey: "status")
+        } throws: {
+            $0.localizedDescription == "Invalid raw value for key 'status': string (\"archived\") is not a valid Status."
+        }
+
+        #expect {
+            _ = try object.int(forKey: "count")
+        } throws: {
+            $0.localizedDescription == "Invalid value for key 'count': expected Int, found string (\"3\")."
+        }
+
+        #expect {
+            _ = try ["date": Date()].toJSON()
+        } throws: {
+            $0.localizedDescription == "Unable to convert dictionary to JSON: values for keys date are not JSON compatible."
+        }
+    }
+
+
     //--------------
     // MARK: Helper
     //--------------

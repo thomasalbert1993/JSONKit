@@ -2,10 +2,59 @@ import Foundation
 
 public enum JSONError: Error {
     case invalidValue(JSONValue, expected: String)
-    case invalidValue(forKey: String, expected: String, in: JSONObject)
+    case invalidKeyValue(forKey: String, expected: String, in: JSONObject)
     case missingOrNullValue(forKey: String, in: JSONObject)
     case unableToSerializeObject(JSONObject)
-    case unableToParseRawValue
+    case invalidRawValue(JSONValue, forKey: String, expected: String)
+    case unableToConvertDictionary(invalidKeys: [String])
+}
+
+extension JSONError: LocalizedError, CustomStringConvertible {
+
+    public var errorDescription: String? {
+        switch self {
+            case .invalidValue(let value, let expected):
+                return "Invalid JSON value: expected \(expected), found \(value.summary)."
+            case .invalidKeyValue(let key, let expected, let object):
+                return "Invalid value for key '\(key)': expected \(expected), found \(object[key]?.summary ?? "nothing")."
+            case .missingOrNullValue(let key, let object):
+                let reason = object[key] == .null ? "Null value" : "Missing value"
+                return "\(reason) for key '\(key)' (available keys: \(object.keysSummary))."
+            case .unableToSerializeObject(let object):
+                return "Unable to serialize JSON object (keys: \(object.keysSummary))."
+            case .invalidRawValue(let value, let key, let expected):
+                return "Invalid raw value for key '\(key)': \(value.summary) is not a valid \(expected)."
+            case .unableToConvertDictionary(let invalidKeys):
+                return "Unable to convert dictionary to JSON: values for keys \(invalidKeys.sorted().joined(separator: ", ")) are not JSON compatible."
+        }
+    }
+
+    public var description: String {
+        errorDescription ?? "Unknown JSON error."
+    }
+}
+
+private extension JSONValue {
+
+    /// A short, human readable description of the value, used in error messages.
+    var summary: String {
+        switch self {
+            case .null: return "null"
+            case .bool(let bool): return "bool (\(bool))"
+            case .number(let number): return "number (\(number))"
+            case .string(let string): return "string (\"\(string.count > 50 ? String(string.prefix(50)) + "…" : string)\")"
+            case .array(let array): return "array (\(array.count) elements)"
+            case .object(let object): return "object (keys: \(object.keysSummary))"
+        }
+    }
+}
+
+private extension JSONObject {
+
+    /// The sorted list of keys, used in error messages.
+    var keysSummary: String {
+        isEmpty ? "none" : keys.sorted().joined(separator: ", ")
+    }
 }
 
 /// A type-safe representation of any valid JSON value.
@@ -441,51 +490,51 @@ extension JSONObject {
     }
     
     public func array(forKey key: String) throws -> [JSONValue] {
-        try value(forKey: key).arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[JSONValue]", in: self))
+        try value(forKey: key).arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[JSONValue]", in: self))
     }
     
     public func string(forKey key: String) throws -> String {
-        try value(forKey: key).stringValue(orThrow: JSONError.invalidValue(forKey: key, expected: "String", in: self))
+        try value(forKey: key).stringValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "String", in: self))
     }
     
     public func stringArray(forKey key: String) throws -> [String] {
-        try value(forKey: key).arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[String]", in: self)).map {
-            try $0.stringValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[String]", in: self))
+        try value(forKey: key).arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[String]", in: self)).map {
+            try $0.stringValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[String]", in: self))
         }
     }
     
     public func int(forKey key: String) throws -> Int {
-        try value(forKey: key).intValue(orThrow: JSONError.invalidValue(forKey: key, expected: "Int", in: self))
+        try value(forKey: key).intValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "Int", in: self))
     }
     
     public func intArray(forKey key: String) throws -> [Int] {
-        try value(forKey: key).arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Int]", in: self)).map {
-            try $0.intValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Int]", in: self))
+        try value(forKey: key).arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Int]", in: self)).map {
+            try $0.intValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Int]", in: self))
         }
     }
     
     public func bool(forKey key: String) throws -> Bool {
-        try value(forKey: key).boolValue(orThrow: JSONError.invalidValue(forKey: key, expected: "Bool", in: self))
+        try value(forKey: key).boolValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "Bool", in: self))
     }
     
     public func boolArray(forKey key: String) throws -> [Bool] {
-        try value(forKey: key).arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Bool]", in: self)).map {
-            try $0.boolValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Bool]", in: self))
+        try value(forKey: key).arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Bool]", in: self)).map {
+            try $0.boolValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Bool]", in: self))
         }
     }
     
     public func double(forKey key: String) throws -> Double {
-        try value(forKey: key).doubleValue(orThrow: JSONError.invalidValue(forKey: key, expected: "Double", in: self))
+        try value(forKey: key).doubleValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "Double", in: self))
     }
     
     public func doubleArray(forKey key: String) throws -> [Double] {
-        try value(forKey: key).arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Double]", in: self)).map {
-            try $0.doubleValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Double]", in: self))
+        try value(forKey: key).arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Double]", in: self)).map {
+            try $0.doubleValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Double]", in: self))
         }
     }
     
     public func object(forKey key: String) throws -> JSONObject {
-        try value(forKey: key).objectValue(orThrow: JSONError.invalidValue(forKey: key, expected: "JSONObject", in: self))
+        try value(forKey: key).objectValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "JSONObject", in: self))
     }
     
     public func object<T: JSONInitializable>(forKey key: String, type: T.Type) throws -> T {
@@ -497,8 +546,8 @@ extension JSONObject {
     }
     
     public func objectArray(forKey key: String) throws -> [JSONObject] {
-        try value(forKey: key).arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[JSONObject]", in: self)).map {
-            try $0.objectValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[JSONObject]", in: self))
+        try value(forKey: key).arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[JSONObject]", in: self)).map {
+            try $0.objectValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[JSONObject]", in: self))
         }
     }
     
@@ -527,51 +576,51 @@ extension JSONObject {
     }
     
     public func optionalArray(forKey key: String) throws -> [JSONValue]? {
-        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[JSONValue]?", in: self))
+        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[JSONValue]?", in: self))
     }
     
     public func optionalString(forKey key: String) throws -> String? {
-        try optionalValue(forKey: key)?.stringValue(orThrow: JSONError.invalidValue(forKey: key, expected: "String?", in: self))
+        try optionalValue(forKey: key)?.stringValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "String?", in: self))
     }
     
     public func optionalStringArray(forKey key: String) throws -> [String]? {
-        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[String]?", in: self)).map {
-            try $0.stringValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[String]?", in: self))
+        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[String]?", in: self)).map {
+            try $0.stringValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[String]?", in: self))
         }
     }
     
     public func optionalInt(forKey key: String) throws -> Int? {
-        try optionalValue(forKey: key)?.intValue(orThrow: JSONError.invalidValue(forKey: key, expected: "Int?", in: self))
+        try optionalValue(forKey: key)?.intValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "Int?", in: self))
     }
     
     public func optionalIntArray(forKey key: String) throws -> [Int]? {
-        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Int]?", in: self)).map {
-            try $0.intValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Int]?", in: self))
+        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Int]?", in: self)).map {
+            try $0.intValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Int]?", in: self))
         }
     }
     
     public func optionalBool(forKey key: String) throws -> Bool? {
-        try optionalValue(forKey: key)?.boolValue(orThrow: JSONError.invalidValue(forKey: key, expected: "Bool?", in: self))
+        try optionalValue(forKey: key)?.boolValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "Bool?", in: self))
     }
     
     public func optionalBoolArray(forKey key: String) throws -> [Bool]? {
-        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Bool]?", in: self)).map {
-            try $0.boolValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Bool]?", in: self))
+        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Bool]?", in: self)).map {
+            try $0.boolValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Bool]?", in: self))
         }
     }
     
     public func optionalDouble(forKey key: String) throws -> Double? {
-        try optionalValue(forKey: key)?.doubleValue(orThrow: JSONError.invalidValue(forKey: key, expected: "Double?", in: self))
+        try optionalValue(forKey: key)?.doubleValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "Double?", in: self))
     }
     
     public func optionalDoubleArray(forKey key: String) throws -> [Double]? {
-        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Double]?", in: self)).map {
-            try $0.doubleValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[Double]?", in: self))
+        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Double]?", in: self)).map {
+            try $0.doubleValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[Double]?", in: self))
         }
     }
     
     public func optionalObject(forKey key: String) throws -> JSONObject? {
-        try optionalValue(forKey: key)?.objectValue(orThrow: JSONError.invalidValue(forKey: key, expected: "JSONObject?", in: self))
+        try optionalValue(forKey: key)?.objectValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "JSONObject?", in: self))
     }
     
     public func optionalObject<T: JSONInitializable>(forKey key: String, type: T.Type) throws -> T? {
@@ -583,8 +632,8 @@ extension JSONObject {
     }
     
     public func optionalObjectArray(forKey key: String) throws -> [JSONObject]? {
-        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[JSONObject]?", in: self)).map {
-            try $0.objectValue(orThrow: JSONError.invalidValue(forKey: key, expected: "[JSONObject]?", in: self))
+        try optionalValue(forKey: key)?.arrayValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[JSONObject]?", in: self)).map {
+            try $0.objectValue(orThrow: JSONError.invalidKeyValue(forKey: key, expected: "[JSONObject]?", in: self))
         }
     }
     
@@ -617,7 +666,7 @@ extension JSONObject {
     public func rawRepresentable<T: RawRepresentable>(forKey key: String) throws -> T where T.RawValue == String {
         let rawValue = try string(forKey: key)
         guard let value = T.init(rawValue: rawValue) else {
-            throw JSONError.unableToParseRawValue
+            throw JSONError.invalidRawValue(try self.value(forKey: key), forKey: key, expected: "\(T.self)")
         }
         return value
     }
@@ -625,7 +674,7 @@ extension JSONObject {
     public func rawRepresentable<T: RawRepresentable>(forKey key: String) throws -> T where T.RawValue == Int {
         let rawValue = try int(forKey: key)
         guard let value = T.init(rawValue: rawValue) else {
-            throw JSONError.unableToParseRawValue
+            throw JSONError.invalidRawValue(try self.value(forKey: key), forKey: key, expected: "\(T.self)")
         }
         return value
     }
@@ -633,7 +682,7 @@ extension JSONObject {
     public func rawRepresentable<T: RawRepresentable>(forKey key: String) throws -> T where T.RawValue == Double {
         let rawValue = try double(forKey: key)
         guard let value = T.init(rawValue: rawValue) else {
-            throw JSONError.unableToParseRawValue
+            throw JSONError.invalidRawValue(try self.value(forKey: key), forKey: key, expected: "\(T.self)")
         }
         return value
     }
@@ -641,7 +690,7 @@ extension JSONObject {
     public func optionalRawRepresentable<T: RawRepresentable>(forKey key: String) throws -> T? where T.RawValue == String {
         if let rawValue = try optionalString(forKey: key) {
             guard let value = T.init(rawValue: rawValue) else {
-                throw JSONError.unableToParseRawValue
+                throw JSONError.invalidRawValue(try self.value(forKey: key), forKey: key, expected: "\(T.self)")
             }
             return value
         }
@@ -651,7 +700,7 @@ extension JSONObject {
     public func optionalRawRepresentable<T: RawRepresentable>(forKey key: String) throws -> T? where T.RawValue == Int {
         if let rawValue = try optionalInt(forKey: key) {
             guard let value = T.init(rawValue: rawValue) else {
-                throw JSONError.unableToParseRawValue
+                throw JSONError.invalidRawValue(try self.value(forKey: key), forKey: key, expected: "\(T.self)")
             }
             return value
         }
@@ -661,7 +710,7 @@ extension JSONObject {
     public func optionalRawRepresentable<T: RawRepresentable>(forKey key: String) throws -> T? where T.RawValue == Double {
         if let rawValue = try optionalDouble(forKey: key) {
             guard let value = T.init(rawValue: rawValue) else {
-                throw JSONError.unableToParseRawValue
+                throw JSONError.invalidRawValue(try self.value(forKey: key), forKey: key, expected: "\(T.self)")
             }
             return value
         }
@@ -706,7 +755,7 @@ extension [String:Any] {
     /// - Returns: The converted JSON object.
     public func toJSON() throws -> JSONObject {
         guard let json = JSONObject(rawValue: self) else {
-            throw JSONError.unableToParseRawValue
+            throw JSONError.unableToConvertDictionary(invalidKeys: filter { JSONValue(rawValue: $0.value) == nil }.map(\.key))
         }
         return json
     }

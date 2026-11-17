@@ -246,12 +246,15 @@ let objectStorable = object.coreDataStorable   // [String: Any]
 Failed lookups and conversions throw `JSONError`:
 
 - `.invalidValue(_:expected:)` — a value has an unexpected type.
-- `.invalidValue(forKey:expected:in:)` — a keyed value has an unexpected type.
+- `.invalidKeyValue(forKey:expected:in:)` — a keyed value has an unexpected type.
 - `.missingOrNullValue(forKey:in:)` — a required key is missing or `null`.
 - `.unableToSerializeObject(_:)` — serialization failed.
-- `.unableToParseRawValue` — a `RawRepresentable` or dictionary conversion failed.
+- `.invalidRawValue(_:forKey:expected:)` — a keyed value doesn't match any case of a `RawRepresentable` type.
+- `.unableToConvertDictionary(invalidKeys:)` — some dictionary values aren't JSON compatible.
 
 Date parsing throws `ISO8601DateFormatterError.invalidDate(_:)`.
+
+Both error types conform to `LocalizedError`, so `localizedDescription` gives a readable message (e.g. `Missing value for key 'title' (available keys: id, name).`).
 
 ## Testing
 
